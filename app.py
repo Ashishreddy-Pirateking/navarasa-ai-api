@@ -142,15 +142,3 @@ def judge():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=False)
-```
-
-And update `requirements.txt` to:
-```
-flask==3.0.0
-flask-cors==4.0.0
-keras==2.15.0
-tensorflow-cpu==2.15.0
-opencv-python-headless==4.8.1.78
-numpy==1.26.4
-h5py==3.10.0
-gunicorn==21.2.0
