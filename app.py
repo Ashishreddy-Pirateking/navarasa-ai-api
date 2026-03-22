@@ -5,26 +5,27 @@ import base64
 import cv2
 import urllib.request
 import os
+import h5py
 
 app = Flask(__name__)
 CORS(app)
 
-# Download model weights on startup
 WEIGHTS_URL = "https://github.com/serengil/deepface_models/releases/download/v1.0/facial_expression_model_weights.h5"
 WEIGHTS_PATH = "/tmp/emotion_weights.h5"
+EMOTIONS = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
 
 def download_weights():
     if not os.path.exists(WEIGHTS_PATH):
         print("Downloading emotion model weights...")
         urllib.request.urlretrieve(WEIGHTS_URL, WEIGHTS_PATH)
-        print("Done!")
+        print("Download complete!")
 
-# Build model using pure keras (no tensorflow dependency)
 def build_model():
-    from keras.models import Model
-    from keras.layers import (Input, Conv2D, MaxPooling2D, AveragePooling2D,
-                               Flatten, Dense, Dropout)
-    import h5py
+    import tensorflow as tf
+    from tensorflow.keras.models import Model
+    from tensorflow.keras.layers import (Input, Conv2D, MaxPooling2D,
+                                          AveragePooling2D, Flatten,
+                                          Dense, Dropout)
 
     inputs = Input(shape=(48, 48, 1))
     x = Conv2D(64, (5,5), activation='relu', padding='same', name='conv2d_1')(inputs)
@@ -50,18 +51,15 @@ def build_model():
         for layer_name in LAYERS_WITH_WEIGHTS:
             layer = model.get_layer(layer_name)
             kernel = f[layer_name][layer_name]['kernel:0'][:]
-            bias   = f[layer_name][layer_name]['bias:0'][:]
+            bias = f[layer_name][layer_name]['bias:0'][:]
             layer.set_weights([kernel, bias])
 
-    print("Model loaded!")
+    print("Model ready!")
     return model
 
-# Load on startup
 download_weights()
 emotion_model = build_model()
-EMOTIONS = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
 
-# ── Comments ──────────────────────────────────────────────────
 COMMENTS = {
     'HASYA': {(0,10):'Mokam endhuku ala pettav',(11,20):'Muthi meedha mekulu kottara',(21,30):'Endhuku pudutharo kuuda thelidhu',(31,40):'Navvu bro koncham em kaadhu',(41,50):'Parledhu serials lo act cheyochu',(51,60):'Okay Movies lo side character cheyochu',(61,70):'Noiceeee',(71,80):'Heroooooooo',(81,90):'Koncham lo national award miss ayyindhi bro',(91,100):'Attttt Kamal Hassan'},
     'KARUNA': {(0,10):'karuna chupinchali, kaamam kaadhu',(11,20):'Nidra po analedhu, karuna chupinchamanam',(21,30):'Kothi la pettav enti bro mokam',(31,40):'Ni meedha evaraina karunisthe baagundu',(41,50):'Parledhu, okay',(51,60):'Noiceee, keep it up',(61,70):'Acting ochu ayithe baane',(71,80):'Mercy mercy mercy, ankara Mercy',(81,90):'Anthe anthe ochesindhi, inkoncham',(91,100):'Attttt Sai Baba'},
@@ -75,9 +73,9 @@ COMMENTS = {
 }
 
 NAVARASA_TO_EMOTION = {
-    'HASYA':'happy','KARUNA':'sad','RAUDRA':'angry',
-    'BHAYANAKA':'fear','Adbhuta':'surprise','BIBHATSA':'disgust',
-    'SHANTA':'neutral','SHRINGARA':'happy','VEERA':'angry',
+    'HASYA': 'happy', 'KARUNA': 'sad', 'RAUDRA': 'angry',
+    'BHAYANAKA': 'fear', 'Adbhuta': 'surprise', 'BIBHATSA': 'disgust',
+    'SHANTA': 'neutral', 'SHRINGARA': 'happy', 'VEERA': 'angry',
 }
 
 def get_comment(navarasa, score):
@@ -88,7 +86,8 @@ def get_comment(navarasa, score):
 
 def preprocess_face(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    face_cascade = cv2.CascadeClassifier(
+        cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
     faces = face_cascade.detectMultiScale(gray, 1.1, 4)
     if len(faces) > 0:
         x, y, w, h = faces[0]
@@ -141,4 +140,4 @@ def judge():
         return jsonify({'error': str(e), 'score': 0, 'comment': 'Chi, face detect avvaledhu!'}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    app.run(host='0.0.0.0', port=10000, debug=False)
