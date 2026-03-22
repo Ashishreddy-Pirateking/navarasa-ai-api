@@ -24,8 +24,8 @@ def build_model():
     import tensorflow as tf
     from tensorflow.keras.models import Model
     from tensorflow.keras.layers import (Input, Conv2D, MaxPooling2D,
-                                          AveragePooling2D, Flatten,
-                                          Dense, Dropout)
+                                      AveragePooling2D, GlobalAveragePooling2D,
+                                      Flatten, Dense, Dropout)
 
     inputs = Input(shape=(48, 48, 1))
     x = Conv2D(64, (5,5), activation='relu', padding='same', name='conv2d_1')(inputs)
@@ -35,7 +35,7 @@ def build_model():
     x = AveragePooling2D(2,2, name='average_pooling2d_1')(x)
     x = Conv2D(128, (3,3), activation='relu', padding='same', name='conv2d_4')(x)
     x = Conv2D(128, (3,3), activation='relu', padding='same', name='conv2d_5')(x)
-    x = AveragePooling2D(2,2, name='average_pooling2d_2')(x)
+    x = GlobalAveragePooling2D(name='average_pooling2d_2')(x)
     x = Flatten(name='flatten_1')(x)
     x = Dense(1024, activation='relu', name='dense_1')(x)
     x = Dropout(0.2, name='dropout_1')(x)
