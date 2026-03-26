@@ -14,6 +14,18 @@ WEIGHTS_URL = "https://github.com/serengil/deepface_models/releases/download/v1.
 WEIGHTS_PATH = "/tmp/emotion_weights.h5"
 EMOTIONS = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
 
+FER_TO_NAVARASA = {
+    'happy': 'HASYA', 'sad': 'KARUNA', 'angry': 'RAUDRA',
+    'fear': 'BHAYANAKA', 'surprise': 'ADBHUTA', 'disgust': 'BIBHATSA',
+    'neutral': 'SHANTA',
+}
+
+NAVARASA_TO_FER = {
+    'HASYA': 'happy', 'KARUNA': 'sad', 'RAUDRA': 'angry',
+    'BHAYANAKA': 'fear', 'ADBHUTA': 'surprise', 'BIBHATSA': 'disgust',
+    'SHANTA': 'neutral', 'SHRINGARA': 'happy', 'VEERA': 'angry',
+}
+
 def download_weights():
     if not os.path.exists(WEIGHTS_PATH):
         print("Downloading emotion model weights...")
@@ -24,9 +36,8 @@ def build_model():
     import tensorflow as tf
     from tensorflow.keras.models import Model
     from tensorflow.keras.layers import (Input, Conv2D, MaxPooling2D,
-                                      AveragePooling2D, GlobalAveragePooling2D,
-                                      Flatten, Dense, Dropout)
-
+                                          AveragePooling2D, Flatten,
+                                          Dense, Dropout)
     inputs = Input(shape=(48, 48, 1))
     x = Conv2D(64, (5,5), activation='relu', padding='same', name='conv2d_1')(inputs)
     x = MaxPooling2D(2,2, name='max_pooling2d_1')(x)
@@ -35,7 +46,7 @@ def build_model():
     x = AveragePooling2D(2,2, name='average_pooling2d_1')(x)
     x = Conv2D(128, (3,3), activation='relu', padding='same', name='conv2d_4')(x)
     x = Conv2D(128, (3,3), activation='relu', padding='same', name='conv2d_5')(x)
-    x = GlobalAveragePooling2D(name='average_pooling2d_2')(x)
+    x = AveragePooling2D(2,2, name='average_pooling2d_2')(x)
     x = Flatten(name='flatten_1')(x)
     x = Dense(1024, activation='relu', name='dense_1')(x)
     x = Dropout(0.2, name='dropout_1')(x)
@@ -53,52 +64,96 @@ def build_model():
             kernel = f[layer_name][layer_name]['kernel:0'][:]
             bias = f[layer_name][layer_name]['bias:0'][:]
             layer.set_weights([kernel, bias])
-
     print("Model ready!")
     return model
 
 download_weights()
 emotion_model = build_model()
 
-COMMENTS = {
-    'HASYA': {(0,10):'Mokam endhuku ala pettav',(11,20):'Muthi meedha mekulu kottara',(21,30):'Endhuku pudutharo kuuda thelidhu',(31,40):'Navvu bro koncham em kaadhu',(41,50):'Parledhu serials lo act cheyochu',(51,60):'Okay Movies lo side character cheyochu',(61,70):'Noiceeee',(71,80):'Heroooooooo',(81,90):'Koncham lo national award miss ayyindhi bro',(91,100):'Attttt Kamal Hassan'},
-    'KARUNA': {(0,10):'karuna chupinchali, kaamam kaadhu',(11,20):'Nidra po analedhu, karuna chupinchamanam',(21,30):'Kothi la pettav enti bro mokam',(31,40):'Ni meedha evaraina karunisthe baagundu',(41,50):'Parledhu, okay',(51,60):'Noiceee, keep it up',(61,70):'Acting ochu ayithe baane',(71,80):'Mercy mercy mercy, ankara Mercy',(81,90):'Anthe anthe ochesindhi, inkoncham',(91,100):'Attttt Sai Baba'},
-    'RAUDRA': {(0,10):'Edsinatte undhi',(11,20):'mokam sarey, kopam ekkada undhi',(21,30):'Pilla bacha kopam idhi',(31,40):'Pandu kothi la bale unnav bhaii',(41,50):'kallu pedhaga chesthe kopam avvadhu nana',(51,60):'Oopiri pilchuko lekapothe poye la unnav',(61,70):'Eyyuuu anna',(71,80):'Ammo bayam vesthundhi baboi',(81,90):'Pedha actor eh',(91,100):'Hey Arjun Reddy lo hero nuvve ga?'},
-    'VEERA': {(0,10):'Comedian la unnav',(11,20):'Mokam enti ila undhi',(21,30):'Enti ala chusthunav, ee score eh ekkuva peh',(31,40):'Raju kaadhu kani, mantri ayithe okay',(41,50):'Close, inkocham try cheyi',(51,60):'Parledhu, okka chinna rajyam ivvochu',(61,70):'Antha okay kaani edho missing king gaaru',(71,80):'Abba abba em tejasuu bidda',(81,90):'Meeru KGP Rajyam Prince ah?',(91,100):'Raju Ekkada unna Raju eh'},
-    'BHAYANAKA': {(0,10):'Enthasepu inka act cheyadaniki',(11,20):'Asalu baale',(21,30):'abacha enti idhi bayame?',(31,40):'Bayapettu analedhu, bayapadu annam',(41,50):'Not bad, kaani inka bayam la ledhu',(51,60):'Eyuuuu',(61,70):'Baane bayapaduthunav',(71,80):'Crush ni make-up lekunda chusava?',(81,90):'Results annouce ayinattu unnayi, chaala bayapaduthunadu paapam',(91,100):'Mana Main character Dhorikesar ayya'},
-    'BIBHATSA': {(0,10):'Nuvve disgusting ga unnav',(11,20):'inkoncham pettochu ga expression',(21,30):'inkoncham pettochu ga expression',(31,40):'inkoncham pettochu ga expression',(41,50):'Parledhu, okay',(51,60):'Antha dharidranga undha?',(61,70):'Em act chesthunav bro. Wah',(71,80):'Yes idhi actor ki undalsina skill level',(81,90):'Em chusav Mowa antha dhaarunanga',(91,100):'Eyuuu actor'},
-    'Adbhuta': {(0,10):'Chi',(11,20):'Adbhutanga cheyi annam, asahyanga kaadhu',(21,30):'idhi acting ah?',(31,40):'Endhuku intha lazy ga unnav',(41,50):'Koncham expression kuuda pettalsindhi',(51,60):'Parledhu, okay',(61,70):'Anni subjects pass ayipoyava',(71,80):'Crush ni saree lo chusina moment',(81,90):'Chaala Adbhutanga undhi Chowdharaa',(91,100):'WOWwww Noiceee'},
-    'SHANTA': {(0,10):'Yukkkkk',(11,20):'Shantanga ekkada unnav?',(21,30):'Enti idhi peaceful ah?',(31,40):'Asale baaledhu',(41,50):'Idhi eh ekkuva peh',(51,60):'Peace',(61,70):'Wars ni aapesela unnav ga',(71,80):'Ah chiru navvu chudu eyuuu',(81,90):'Gandhi jayanti ni birthday roju eh na?',(91,100):'Bhudhudi la bale shantanga unnav ayya'},
-    'SHRINGARA': {(0,10):'blehhh ewww',(11,20):'Enti idhi, ah maaku enti idhi antunna',(21,30):'Chi',(31,40):'kastame bro ila ayithe partner raavadam',(41,50):'Ela padutharu anukuntunav ila evarraina',(51,60):'Ayya baboiiii siguuuu ehhhhh',(61,70):'ey ey eyyyyyyy',(71,80):'Edho anukunamu kaani andi, maamulu vaaru kaadhandi',(81,90):'Ahaaaannnn',(91,100):'Rasikudive'},
-}
-
-NAVARASA_TO_EMOTION = {
-    'HASYA': 'happy', 'KARUNA': 'sad', 'RAUDRA': 'angry',
-    'BHAYANAKA': 'fear', 'Adbhuta': 'surprise', 'BIBHATSA': 'disgust',
-    'SHANTA': 'neutral', 'SHRINGARA': 'happy', 'VEERA': 'angry',
-}
-
-def get_comment(navarasa, score):
-    for (low, high), comment in COMMENTS.get(navarasa, {}).items():
-        if low <= score <= high:
-            return comment
-    return 'Try again!'
-
 def preprocess_face(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     face_cascade = cv2.CascadeClassifier(
         cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
     faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+    face_box = None
     if len(faces) > 0:
         x, y, w, h = faces[0]
+        face_box = {'x': int(x), 'y': int(y), 'w': int(w), 'h': int(h)}
         gray = gray[y:y+h, x:x+w]
     gray = cv2.resize(gray, (48, 48))
     arr = gray.astype('float32') / 255.0
-    return arr.reshape(1, 48, 48, 1)
+    return arr.reshape(1, 48, 48, 1), face_box
 
 @app.route('/', methods=['GET'])
 def health():
     return jsonify({'status': 'Navarasa AI API is running!'})
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    try:
+        data = request.get_json()
+        target_navarasa = str(data.get('targetEmotion', data.get('navarasa', ''))).upper()
+        image_b64 = data.get('image', '')
+
+        if not image_b64:
+            return jsonify({'emotion': 'NO_FACE', 'confidence': 0,
+                            'target_confidence': 0, 'target_raw_confidence': 0,
+                            'raw_confidence': 0, 'margin': 0, 'face_quality': 0,
+                            'target_gap': 1, 'target_rank': 9, 'face_box': None})
+
+        if ',' in image_b64:
+            image_b64 = image_b64.split(',')[1]
+
+        img_bytes = base64.b64decode(image_b64)
+        img_array = np.frombuffer(img_bytes, dtype=np.uint8)
+        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+
+        if img is None:
+            return jsonify({'emotion': 'NO_FACE', 'confidence': 0,
+                            'target_confidence': 0, 'target_raw_confidence': 0,
+                            'raw_confidence': 0, 'margin': 0, 'face_quality': 0,
+                            'target_gap': 1, 'target_rank': 9, 'face_box': None})
+
+        face, face_box = preprocess_face(img)
+        preds = emotion_model.predict(face, verbose=0)[0]
+
+        emotions_map = {e: float(p) for e, p in zip(EMOTIONS, preds)}
+        dominant_fer = EMOTIONS[int(np.argmax(preds))]
+        dominant_navarasa = FER_TO_NAVARASA.get(dominant_fer, dominant_fer)
+
+        target_fer = NAVARASA_TO_FER.get(target_navarasa, 'neutral')
+        target_conf = emotions_map.get(target_fer, 0.0)
+
+        sorted_preds = sorted(emotions_map.values(), reverse=True)
+        target_rank = next((i+1 for i, v in enumerate(sorted_preds)
+                           if abs(v - target_conf) < 0.0001), 9)
+        top_conf = sorted_preds[0] if sorted_preds else 1.0
+        target_gap = float(top_conf - target_conf)
+        margin = float(sorted_preds[0] - sorted_preds[1]) if len(sorted_preds) > 1 else 0.0
+        face_quality = float(min(1.0, (np.max(preds) - np.min(preds)) * 2))
+
+        return jsonify({
+            'emotion': dominant_navarasa,
+            'confidence': float(np.max(preds)),
+            'raw_confidence': float(np.max(preds)),
+            'target_confidence': target_conf,
+            'target_raw_confidence': target_conf,
+            'margin': margin,
+            'face_quality': face_quality,
+            'target_gap': target_gap,
+            'target_rank': int(target_rank),
+            'face_box': face_box,
+            'all_emotions': {e: round(float(p * 100), 1)
+                            for e, p in zip(EMOTIONS, preds)},
+        })
+
+    except Exception as e:
+        print(f"Predict error: {e}")
+        return jsonify({'emotion': 'ERROR', 'confidence': 0,
+                        'target_confidence': 0, 'target_raw_confidence': 0,
+                        'raw_confidence': 0, 'margin': 0, 'face_quality': 0,
+                        'target_gap': 1, 'target_rank': 9,
+                        'face_box': None, 'error': str(e)})
 
 @app.route('/api/judge', methods=['POST'])
 def judge():
@@ -120,24 +175,42 @@ def judge():
         if img is None:
             return jsonify({'error': 'Could not decode image'}), 400
 
-        face = preprocess_face(img)
+        face, _ = preprocess_face(img)
         preds = emotion_model.predict(face, verbose=0)[0]
 
         emotions = {e: round(float(p * 100), 1) for e, p in zip(EMOTIONS, preds)}
-        base_emotion = NAVARASA_TO_EMOTION.get(navarasa, 'neutral')
-        score = round(emotions.get(base_emotion, 0))
+        target_fer = NAVARASA_TO_FER.get(navarasa.upper(), 'neutral')
+        score = round(emotions.get(target_fer, 0))
         score = max(0, min(100, score))
-        comment = get_comment(navarasa, score)
+
+        COMMENTS = {
+            'HASYA': {(0,10):'Mokam endhuku ala pettav',(11,20):'Muthi meedha mekulu kottara',(21,30):'Endhuku pudutharo kuuda thelidhu',(31,40):'Navvu bro koncham em kaadhu',(41,50):'Parledhu serials lo act cheyochu',(51,60):'Okay Movies lo side character cheyochu',(61,70):'Noiceeee',(71,80):'Heroooooooo',(81,90):'Koncham lo national award miss ayyindhi bro',(91,100):'Attttt Kamal Hassan'},
+            'KARUNA': {(0,10):'karuna chupinchali, kaamam kaadhu',(11,20):'Nidra po analedhu, karuna chupinchamanam',(21,30):'Kothi la pettav enti bro mokam',(31,40):'Ni meedha evaraina karunisthe baagundu',(41,50):'Parledhu, okay',(51,60):'Noiceee, keep it up',(61,70):'Acting ochu ayithe baane',(71,80):'Mercy mercy mercy, ankara Mercy',(81,90):'Anthe anthe ochesindhi, inkoncham',(91,100):'Attttt Sai Baba'},
+            'RAUDRA': {(0,10):'Edsinatte undhi',(11,20):'mokam sarey, kopam ekkada undhi',(21,30):'Pilla bacha kopam idhi',(31,40):'Pandu kothi la bale unnav bhaii',(41,50):'kallu pedhaga chesthe kopam avvadhu nana',(51,60):'Oopiri pilchuko lekapothe poye la unnav',(61,70):'Eyyuuu anna',(71,80):'Ammo bayam vesthundhi baboi',(81,90):'Pedha actor eh',(91,100):'Hey Arjun Reddy lo hero nuvve ga?'},
+            'VEERA': {(0,10):'Comedian la unnav',(11,20):'Mokam enti ila undhi',(21,30):'Enti ala chusthunav, ee score eh ekkuva peh',(31,40):'Raju kaadhu kani, mantri ayithe okay',(41,50):'Close, inkocham try cheyi',(51,60):'Parledhu, okka chinna rajyam ivvochu',(61,70):'Antha okay kaani edho missing king gaaru',(71,80):'Abba abba em tejasuu bidda',(81,90):'Meeru KGP Rajyam Prince ah?',(91,100):'Raju Ekkada unna Raju eh'},
+            'BHAYANAKA': {(0,10):'Enthasepu inka act cheyadaniki',(11,20):'Asalu baale',(21,30):'abacha enti idhi bayame?',(31,40):'Bayapettu analedhu, bayapadu annam',(41,50):'Not bad, kaani inka bayam la ledhu',(51,60):'Eyuuuu',(61,70):'Baane bayapaduthunav',(71,80):'Crush ni make-up lekunda chusava?',(81,90):'Results annouce ayinattu unnayi, chaala bayapaduthunadu paapam',(91,100):'Mana Main character Dhorikesar ayya'},
+            'BIBHATSA': {(0,10):'Nuvve disgusting ga unnav',(11,20):'inkoncham pettochu ga expression',(21,30):'inkoncham pettochu ga expression',(31,40):'inkoncham pettochu ga expression',(41,50):'Parledhu, okay',(51,60):'Antha dharidranga undha?',(61,70):'Em act chesthunav bro. Wah',(71,80):'Yes idhi actor ki undalsina skill level',(81,90):'Em chusav Mowa antha dhaarunanga',(91,100):'Eyuuu actor'},
+            'ADBHUTA': {(0,10):'Chi',(11,20):'Adbhutanga cheyi annam, asahyanga kaadhu',(21,30):'idhi acting ah?',(31,40):'Endhuku intha lazy ga unnav',(41,50):'Koncham expression kuuda pettalsindhi',(51,60):'Parledhu, okay',(61,70):'Anni subjects pass ayipoyava',(71,80):'Crush ni saree lo chusina moment',(81,90):'Chaala Adbhutanga undhi Chowdharaa',(91,100):'WOWwww Noiceee'},
+            'SHANTA': {(0,10):'Yukkkkk',(11,20):'Shantanga ekkada unnav?',(21,30):'Enti idhi peaceful ah?',(31,40):'Asale baaledhu',(41,50):'Idhi eh ekkuva peh',(51,60):'Peace',(61,70):'Wars ni aapesela unnav ga',(71,80):'Ah chiru navvu chudu eyuuu',(81,90):'Gandhi jayanti ni birthday roju eh na?',(91,100):'Bhudhudi la bale shantanga unnav ayya'},
+            'SHRINGARA': {(0,10):'blehhh ewww',(11,20):'Enti idhi, ah maaku enti idhi antunna',(21,30):'Chi',(31,40):'kastame bro ila ayithe partner raavadam',(41,50):'Ela padutharu anukuntunav ila evarraina',(51,60):'Ayya baboiiii siguuuu ehhhhh',(61,70):'ey ey eyyyyyyy',(71,80):'Edho anukunamu kaani andi, maamulu vaaru kaadhandi',(81,90):'Ahaaaannnn',(91,100):'Rasikudive'},
+        }
+
+        def get_comment(nav, sc):
+            for (low, high), comment in COMMENTS.get(nav.upper(), {}).items():
+                if low <= sc <= high:
+                    return comment
+            return 'Try again!'
 
         return jsonify({
             'score': score,
-            'comment': comment,
-            'dominant_emotion': EMOTIONS[int(np.argmax(preds))],
+            'comment': get_comment(navarasa, score),
+            'dominant_emotion': FER_TO_NAVARASA.get(EMOTIONS[int(np.argmax(preds))], ''),
             'emotions': emotions
         })
 
     except Exception as e:
-        return jsonify({'error': str(e), 'score': 0, 'comment': 'Chi, face detect avvaledhu!'}), 500
+        return jsonify({'error': str(e), 'score': 0,
+                        'comment': 'Chi, face detect avvaledhu!'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=False)
