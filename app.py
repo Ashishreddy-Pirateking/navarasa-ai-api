@@ -3,14 +3,14 @@ from flask_cors import CORS
 import numpy as np
 import base64
 import cv2
-import urllib.request
 import os
 import h5py
+import requests as req_lib
 
 app = Flask(__name__)
 CORS(app)
 
-WEIGHTS_URL = "https://github.com/serengil/deepface_models/releases/download/v1.0/facial_expression_model_weights.h5"
+WEIGHTS_URL = "https://github.com/serengil/deepface_models/releases/download/pre-trained-weights/facial_expression_model_weights.h5"
 WEIGHTS_PATH = "/tmp/emotion_weights.h5"
 EMOTIONS = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
 
@@ -29,7 +29,11 @@ NAVARASA_TO_FER = {
 def download_weights():
     if not os.path.exists(WEIGHTS_PATH):
         print("Downloading emotion model weights...")
-        urllib.request.urlretrieve(WEIGHTS_URL, WEIGHTS_PATH)
+        response = req_lib.get(WEIGHTS_URL, stream=True, timeout=120)
+        response.raise_for_status()
+        with open(WEIGHTS_PATH, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
         print("Download complete!")
 
 def build_model():
@@ -177,7 +181,6 @@ def judge():
 
         face, _ = preprocess_face(img)
         preds = emotion_model.predict(face, verbose=0)[0]
-
         emotions = {e: round(float(p * 100), 1) for e, p in zip(EMOTIONS, preds)}
         target_fer = NAVARASA_TO_FER.get(navarasa.upper(), 'neutral')
         score = round(emotions.get(target_fer, 0))
