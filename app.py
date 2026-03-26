@@ -10,7 +10,7 @@ import requests as req_lib
 app = Flask(__name__)
 CORS(app)
 
-WEIGHTS_URL = "https://github.com/serengil/deepface_models/releases/download/pre-trained-weights/facial_expression_model_weights.h5"
+WEIGHTS_URL = "https://github.com/serengil/deepface_models/releases/download/v1.0/facial_expression_model_weights.h5"
 WEIGHTS_PATH = "/tmp/emotion_weights.h5"
 EMOTIONS = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
 
@@ -71,8 +71,12 @@ def build_model():
     print("Model ready!")
     return model
 
-download_weights()
-emotion_model = build_model()
+try:
+    download_weights()
+    emotion_model = build_model()
+except Exception as e:
+    print(f"Model load failed: {e}")
+    emotion_model = None
 
 def preprocess_face(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -94,6 +98,8 @@ def health():
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    if emotion_model is None:
+        return jsonify({"error": "Model not loaded"}), 500
     try:
         data = request.get_json()
         target_navarasa = str(data.get('targetEmotion', data.get('navarasa', ''))).upper()
