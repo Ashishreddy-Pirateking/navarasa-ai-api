@@ -5,6 +5,13 @@ import base64
 import cv2
 import os
 
+
+import os
+# Use /tmp for weights — persists within the same worker lifetime
+WEIGHTS_DIR = "/tmp/deepface_weights"
+os.makedirs(WEIGHTS_DIR, exist_ok=True)
+os.environ["DEEPFACE_HOME"] = "/tmp"
+
 app = Flask(__name__)
 CORS(app)
 
@@ -25,7 +32,7 @@ NAVARASA_TO_FER = {
 print("Loading DeepFace emotion model...")
 try:
     import os, requests as req_lib
-    weights_dir = "/opt/render/.deepface/weights"
+    weights_dir = "/tmp/.deepface/weights"
     os.makedirs(weights_dir, exist_ok=True)
     h5_path = os.path.join(weights_dir, "facial_expression_model_weights.h5")
 
