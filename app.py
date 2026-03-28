@@ -24,19 +24,24 @@ NAVARASA_TO_FER = {
 
 print("Loading DeepFace emotion model...")
 try:
-    import shutil
-    import os
-    # Clear corrupted weights cache so DeepFace re-downloads clean
-    weights_dir = os.path.expanduser("~/.deepface/weights")
-    render_weights = "/opt/render/.deepface/weights"
-    for w_dir in [weights_dir, render_weights]:
-        h5_path = os.path.join(w_dir, "facial_expression_model_weights.h5")
-        if os.path.exists(h5_path) and os.path.getsize(h5_path) < 1000:
-            print(f"Removing corrupted weights: {h5_path}")
-            os.remove(h5_path)
+    import os, urllib.request
+    weights_dir = "/opt/render/.deepface/weights"
+    os.makedirs(weights_dir, exist_ok=True)
+    h5_path = os.path.join(weights_dir, "facial_expression_model_weights.h5")
+    
+    # Remove if corrupted (< 1MB)
+    if os.path.exists(h5_path) and os.path.getsize(h5_path) < 1_000_000:
+        print(f"Removing corrupted weights ({os.path.getsize(h5_path)} bytes)")
+        os.remove(h5_path)
+    
+    # Manually download if missing
+    if not os.path.exists(h5_path):
+        print("Downloading model weights manually...")
+        url = "https://github.com/serengil/deepface_models/releases/download/v1.0/facial_expression_model_weights.h5"
+        urllib.request.urlretrieve(url, h5_path)
+        print(f"Downloaded: {os.path.getsize(h5_path)} bytes")
 
     from deepface import DeepFace
-    import numpy as np
     DeepFace.analyze(
         img_path=np.zeros((48, 48, 3), dtype=np.uint8),
         actions=['emotion'],
@@ -48,7 +53,7 @@ try:
 except Exception as e:
     print(f"DeepFace init warning: {e}")
     DEEPFACE_READY = False
-    print("DeepFace failed to load — predictions will fail.")
+    print("DeepFace failed to load.")
 
 def analyze_image(img, target_navarasa):
     from deepface import DeepFace
