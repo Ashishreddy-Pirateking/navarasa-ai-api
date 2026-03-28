@@ -24,27 +24,21 @@ NAVARASA_TO_FER = {
 
 print("Loading DeepFace emotion model...")
 try:
-    import os
-    import gdown
+    import os, requests as req_lib
     weights_dir = "/opt/render/.deepface/weights"
     os.makedirs(weights_dir, exist_ok=True)
     h5_path = os.path.join(weights_dir, "facial_expression_model_weights.h5")
 
-    # Remove if corrupted (real file is ~9MB)
-    if os.path.exists(h5_path) and os.path.getsize(h5_path) < 1_000_000:
-        print(f"Removing corrupted weights ({os.path.getsize(h5_path)} bytes)")
-        os.remove(h5_path)
-
-    if not os.path.exists(h5_path):
-        print("Downloading model weights via gdown...")
-        # This is the correct Google Drive ID for the emotion model
-        gdown.download(
-            "https://github.com/serengil/deepface_models/releases/download/v1.0/facial_expression_model_weights.h5",
-            h5_path,
-            quiet=False,
-            fuzzy=True
-        )
-        print(f"Downloaded: {os.path.getsize(h5_path)} bytes")
+    if not os.path.exists(h5_path) or os.path.getsize(h5_path) < 1_000_000:
+        print("Downloading model weights from HuggingFace...")
+        url = "https://huggingface.co/spaces/panik/Facial-Expression/resolve/2329d7eb425483a65ae56cb64550788a12401e40/facial_expression_model_weights.h5"
+        r = req_lib.get(url, allow_redirects=True, timeout=120)
+        with open(h5_path, 'wb') as f:
+            f.write(r.content)
+        size = os.path.getsize(h5_path)
+        print(f"Downloaded: {size} bytes")
+        if size < 1_000_000:
+            raise Exception(f"Downloaded file too small: {size} bytes")
 
     from deepface import DeepFace
     DeepFace.analyze(
@@ -59,6 +53,8 @@ except Exception as e:
     print(f"DeepFace init warning: {e}")
     DEEPFACE_READY = False
     print("DeepFace failed to load.")
+
+
 def analyze_image(img, target_navarasa):
     from deepface import DeepFace
     result = DeepFace.analyze(
