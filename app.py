@@ -110,9 +110,6 @@ def warmup():
 
 @app.route('/', methods=['GET'])
 def health():
-
-@app.route('/', methods=['GET'])
-def health():
     return jsonify({'status': 'Navarasa AI API is running!', 'model': 'DeepFace ready'})
 
 @app.route('/predict', methods=['POST'])
