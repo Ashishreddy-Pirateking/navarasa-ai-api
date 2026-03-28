@@ -24,7 +24,19 @@ NAVARASA_TO_FER = {
 
 print("Loading DeepFace emotion model...")
 try:
+    import shutil
+    import os
+    # Clear corrupted weights cache so DeepFace re-downloads clean
+    weights_dir = os.path.expanduser("~/.deepface/weights")
+    render_weights = "/opt/render/.deepface/weights"
+    for w_dir in [weights_dir, render_weights]:
+        h5_path = os.path.join(w_dir, "facial_expression_model_weights.h5")
+        if os.path.exists(h5_path) and os.path.getsize(h5_path) < 1000:
+            print(f"Removing corrupted weights: {h5_path}")
+            os.remove(h5_path)
+
     from deepface import DeepFace
+    import numpy as np
     DeepFace.analyze(
         img_path=np.zeros((48, 48, 3), dtype=np.uint8),
         actions=['emotion'],
@@ -35,8 +47,8 @@ try:
     print("DeepFace model ready!")
 except Exception as e:
     print(f"DeepFace init warning: {e}")
-    DEEPFACE_READY = True
-    print("DeepFace will load on first request.")
+    DEEPFACE_READY = False
+    print("DeepFace failed to load — predictions will fail.")
 
 def analyze_image(img, target_navarasa):
     from deepface import DeepFace
