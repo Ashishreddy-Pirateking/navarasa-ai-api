@@ -94,6 +94,23 @@ def analyze_image(img, target_navarasa):
         'emotions_norm': emotions_normalized,
     }
 
+@app.route('/warmup', methods=['GET'])
+def warmup():
+    try:
+        from deepface import DeepFace
+        DeepFace.analyze(
+            img_path=np.zeros((48, 48, 3), dtype=np.uint8),
+            actions=['emotion'],
+            enforce_detection=False,
+            silent=True
+        )
+        return jsonify({'status': 'warm'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)})
+
+@app.route('/', methods=['GET'])
+def health():
+
 @app.route('/', methods=['GET'])
 def health():
     return jsonify({'status': 'Navarasa AI API is running!', 'model': 'DeepFace ready'})
