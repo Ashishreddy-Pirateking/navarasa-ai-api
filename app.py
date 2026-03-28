@@ -24,21 +24,26 @@ NAVARASA_TO_FER = {
 
 print("Loading DeepFace emotion model...")
 try:
-    import os, urllib.request
+    import os
+    import gdown
     weights_dir = "/opt/render/.deepface/weights"
     os.makedirs(weights_dir, exist_ok=True)
     h5_path = os.path.join(weights_dir, "facial_expression_model_weights.h5")
-    
-    # Remove if corrupted (< 1MB)
+
+    # Remove if corrupted (real file is ~9MB)
     if os.path.exists(h5_path) and os.path.getsize(h5_path) < 1_000_000:
         print(f"Removing corrupted weights ({os.path.getsize(h5_path)} bytes)")
         os.remove(h5_path)
-    
-    # Manually download if missing
+
     if not os.path.exists(h5_path):
-        print("Downloading model weights manually...")
-        url = "https://github.com/serengil/deepface_models/releases/download/v1.0/facial_expression_model_weights.h5"
-        urllib.request.urlretrieve(url, h5_path)
+        print("Downloading model weights via gdown...")
+        # This is the correct Google Drive ID for the emotion model
+        gdown.download(
+            "https://github.com/serengil/deepface_models/releases/download/v1.0/facial_expression_model_weights.h5",
+            h5_path,
+            quiet=False,
+            fuzzy=True
+        )
         print(f"Downloaded: {os.path.getsize(h5_path)} bytes")
 
     from deepface import DeepFace
@@ -54,7 +59,6 @@ except Exception as e:
     print(f"DeepFace init warning: {e}")
     DEEPFACE_READY = False
     print("DeepFace failed to load.")
-
 def analyze_image(img, target_navarasa):
     from deepface import DeepFace
     result = DeepFace.analyze(
