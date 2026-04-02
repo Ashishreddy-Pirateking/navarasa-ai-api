@@ -3,23 +3,17 @@ from flask_cors import CORS
 import numpy as np
 import base64
 import cv2
-import os
-
-
-import os
-# Use /tmp for weights — persists within the same worker lifetime
-WEIGHTS_DIR = "/tmp/deepface_weights"
-os.makedirs(WEIGHTS_DIR, exist_ok=True)
-os.environ["DEEPFACE_HOME"] = "/tmp"
 
 app = Flask(__name__)
 CORS(app)
 
-EMOTIONS = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
-
 FER_TO_NAVARASA = {
-    'happy': 'HASYA', 'sad': 'KARUNA', 'angry': 'RAUDRA',
-    'fear': 'BHAYANAKA', 'surprise': 'ADBHUTA', 'disgust': 'BIBHATSA',
+    'angry':   'RAUDRA',
+    'disgust': 'BIBHATSA',
+    'fear':    'BHAYANAKA',
+    'happy':   'HASYA',
+    'sad':     'KARUNA',
+    'surprise':'ADBHUTA',
     'neutral': 'SHANTA',
 }
 
@@ -28,161 +22,6 @@ NAVARASA_TO_FER = {
     'BHAYANAKA': 'fear', 'ADBHUTA': 'surprise', 'BIBHATSA': 'disgust',
     'SHANTA': 'neutral', 'SHRINGARA': 'happy', 'VEERA': 'angry',
 }
-
-print("Loading DeepFace emotion model...")
-try:
-    import os, requests as req_lib
-    weights_dir = "/tmp/.deepface/weights"
-    os.makedirs(weights_dir, exist_ok=True)
-    h5_path = os.path.join(weights_dir, "facial_expression_model_weights.h5")
-
-    if not os.path.exists(h5_path) or os.path.getsize(h5_path) < 1_000_000:
-        print("Downloading model weights from HuggingFace...")
-        url = "https://huggingface.co/spaces/panik/Facial-Expression/resolve/2329d7eb425483a65ae56cb64550788a12401e40/facial_expression_model_weights.h5"
-        r = req_lib.get(url, allow_redirects=True, timeout=120)
-        with open(h5_path, 'wb') as f:
-            f.write(r.content)
-        size = os.path.getsize(h5_path)
-        print(f"Downloaded: {size} bytes")
-        if size < 1_000_000:
-            raise Exception(f"Downloaded file too small: {size} bytes")
-
-    from deepface import DeepFace
-    DeepFace.analyze(
-        img_path=np.zeros((48, 48, 3), dtype=np.uint8),
-        actions=['emotion'],
-        enforce_detection=False,
-        silent=True
-    )
-    DEEPFACE_READY = True
-    print("DeepFace model ready!")
-except Exception as e:
-    print(f"DeepFace init warning: {e}")
-    DEEPFACE_READY = False
-    print("DeepFace failed to load.")
-
-
-def analyze_image(img, target_navarasa):
-    from deepface import DeepFace
-    result = DeepFace.analyze(
-        img_path=img,
-        actions=['emotion'],
-        enforce_detection=False,
-        silent=True
-    )
-    emotions_raw = result[0]['emotion']
-    dominant_fer = result[0]['dominant_emotion']
-    dominant_navarasa = FER_TO_NAVARASA.get(dominant_fer, 'SHANTA')
-
-    target_fer = NAVARASA_TO_FER.get(target_navarasa.upper(), 'neutral')
-    target_conf = emotions_raw.get(target_fer, 0.0) / 100.0
-
-    sorted_vals = sorted(emotions_raw.values(), reverse=True)
-    top_val = sorted_vals[0] / 100.0 if sorted_vals else 1.0
-    second_val = sorted_vals[1] / 100.0 if len(sorted_vals) > 1 else 0.0
-    target_rank = next((i+1 for i, v in enumerate(sorted_vals)
-                       if abs(v - emotions_raw.get(target_fer, 0)) < 0.01), 9)
-    target_gap = float(top_val - target_conf)
-    margin = float(top_val - second_val)
-    face_quality = float(min(1.0, margin * 2))
-
-    emotions_normalized = {k: v / 100.0 for k, v in emotions_raw.items()}
-
-    return {
-        'dominant_navarasa': dominant_navarasa,
-        'dominant_fer': dominant_fer,
-        'target_conf': target_conf,
-        'top_val': top_val,
-        'target_rank': target_rank,
-        'target_gap': target_gap,
-        'margin': margin,
-        'face_quality': face_quality,
-        'emotions_pct': emotions_raw,
-        'emotions_norm': emotions_normalized,
-    }
-
-@app.route('/warmup', methods=['GET'])
-def warmup():
-    try:
-        from deepface import DeepFace
-        DeepFace.analyze(
-            img_path=np.zeros((48, 48, 3), dtype=np.uint8),
-            actions=['emotion'],
-            enforce_detection=False,
-            silent=True
-        )
-        return jsonify({'status': 'warm'})
-    except Exception as e:
-        return jsonify({'status': 'error', 'error': str(e)})
-
-@app.route('/', methods=['GET'])
-def health():
-    return jsonify({'status': 'Navarasa AI API is running!', 'model': 'DeepFace ready'})
-
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'emotion': 'NO_FACE', 'confidence': 0,
-                            'target_confidence': 0, 'target_raw_confidence': 0,
-                            'raw_confidence': 0, 'margin': 0, 'face_quality': 0,
-                            'target_gap': 1, 'target_rank': 9, 'face_box': None})
-
-        target_navarasa = str(data.get('targetEmotion', data.get('navarasa', 'SHANTA'))).upper()
-        image_b64 = data.get('image', '')
-
-        if not image_b64:
-            return jsonify({'emotion': 'NO_FACE', 'confidence': 0,
-                            'target_confidence': 0, 'target_raw_confidence': 0,
-                            'raw_confidence': 0, 'margin': 0, 'face_quality': 0,
-                            'target_gap': 1, 'target_rank': 9, 'face_box': None})
-
-        if ',' in image_b64:
-            image_b64 = image_b64.split(',')[1]
-
-        img_bytes = base64.b64decode(image_b64)
-        img_array = np.frombuffer(img_bytes, dtype=np.uint8)
-        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-
-        if img is None:
-            return jsonify({'emotion': 'NO_FACE', 'confidence': 0,
-                            'target_confidence': 0, 'target_raw_confidence': 0,
-                            'raw_confidence': 0, 'margin': 0, 'face_quality': 0,
-                            'target_gap': 1, 'target_rank': 9, 'face_box': None})
-
-        r = analyze_image(img, target_navarasa)
-
-        face_box = None
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        faces = cascade.detectMultiScale(gray, 1.1, 4)
-        if len(faces) > 0:
-            x, y, w, h = faces[0]
-            face_box = {'x': int(x), 'y': int(y), 'w': int(w), 'h': int(h)}
-
-        return jsonify({
-            'emotion': r['dominant_navarasa'],
-            'confidence': r['top_val'],
-            'raw_confidence': r['top_val'],
-            'target_confidence': r['target_conf'],
-            'target_raw_confidence': r['target_conf'],
-            'margin': r['margin'],
-            'face_quality': r['face_quality'],
-            'target_gap': r['target_gap'],
-            'target_rank': int(r['target_rank']),
-            'face_box': face_box,
-            'all_emotions': r['emotions_pct'],
-        })
-
-    except Exception as e:
-        print(f"Predict error: {e}")
-        return jsonify({'emotion': 'ERROR', 'confidence': 0,
-                        'target_confidence': 0, 'target_raw_confidence': 0,
-                        'raw_confidence': 0, 'margin': 0, 'face_quality': 0,
-                        'target_gap': 1, 'target_rank': 9,
-                        'face_box': None, 'error': str(e)})
 
 COMMENTS = {
     'HASYA': {0:'Mokam endhuku ala pettav',11:'Muthi meedha mekulu kottara',21:'Endhuku pudutharo kuuda thelidhu',31:'Navvu bro koncham em kaadhu',41:'Parledhu serials lo act cheyochu',51:'Okay Movies lo side character cheyochu',61:'Noiceeee',71:'Heroooooooo',81:'Koncham lo national award miss ayyindhi bro',91:'Attttt Kamal Hassan'},
@@ -203,16 +42,67 @@ def get_comment(nav, sc):
             return bank[t]
     return bank[0]
 
-@app.route('/api/judge', methods=['POST'])
-def judge():
+print("Loading FER model...")
+try:
+    from fer import FER
+    detector = FER(mtcnn=False)
+    print("FER model ready!")
+except Exception as e:
+    print(f"FER load error: {e}")
+    detector = None
+
+def analyze_image(img, target_navarasa):
+    result = detector.detect_emotions(img)
+    if not result:
+        return None
+    emotions_raw = result[0]['emotions']  # values are 0.0–1.0
+    dominant_fer = max(emotions_raw, key=emotions_raw.get)
+    dominant_navarasa = FER_TO_NAVARASA.get(dominant_fer, 'SHANTA')
+    target_fer = NAVARASA_TO_FER.get(target_navarasa.upper(), 'neutral')
+    target_conf = emotions_raw.get(target_fer, 0.0)
+    top_val = emotions_raw.get(dominant_fer, 0.0)
+    sorted_vals = sorted(emotions_raw.values(), reverse=True)
+    second_val = sorted_vals[1] if len(sorted_vals) > 1 else 0.0
+    margin = top_val - second_val
+    face_quality = min(1.0, margin * 2)
+    target_gap = top_val - target_conf
+    target_rank = sorted(emotions_raw.values(), reverse=True).index(emotions_raw.get(target_fer, 0)) + 1
+    emotions_pct = {k: round(v * 100, 1) for k, v in emotions_raw.items()}
+    return {
+        'dominant_navarasa': dominant_navarasa,
+        'dominant_fer': dominant_fer,
+        'target_conf': target_conf,
+        'top_val': top_val,
+        'target_rank': target_rank,
+        'target_gap': target_gap,
+        'margin': margin,
+        'face_quality': face_quality,
+        'emotions_pct': emotions_pct,
+    }
+
+@app.route('/warmup', methods=['GET'])
+def warmup():
+    return jsonify({'status': 'warm'})
+
+@app.route('/', methods=['GET'])
+def health():
+    return jsonify({'status': 'Navarasa AI API is running!', 'model': 'FER ready' if detector else 'FER failed'})
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    if detector is None:
+        return jsonify({'emotion': 'NO_FACE', 'confidence': 0, 'target_confidence': 0,
+                        'target_raw_confidence': 0, 'raw_confidence': 0, 'margin': 0,
+                        'face_quality': 0, 'target_gap': 1, 'target_rank': 9, 'face_box': None})
     try:
         data = request.get_json()
-        navarasa = data.get('navarasa', '')
-        image_b64 = data.get('image', '')
+        if not data or not data.get('image'):
+            return jsonify({'emotion': 'NO_FACE', 'confidence': 0, 'target_confidence': 0,
+                            'target_raw_confidence': 0, 'raw_confidence': 0, 'margin': 0,
+                            'face_quality': 0, 'target_gap': 1, 'target_rank': 9, 'face_box': None})
 
-        if not navarasa or not image_b64:
-            return jsonify({'error': 'Missing data'}), 400
-
+        target_navarasa = str(data.get('targetEmotion', data.get('navarasa', 'SHANTA'))).upper()
+        image_b64 = data['image']
         if ',' in image_b64:
             image_b64 = image_b64.split(',')[1]
 
@@ -221,22 +111,77 @@ def judge():
         img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
         if img is None:
+            return jsonify({'emotion': 'NO_FACE', 'confidence': 0, 'target_confidence': 0,
+                            'target_raw_confidence': 0, 'raw_confidence': 0, 'margin': 0,
+                            'face_quality': 0, 'target_gap': 1, 'target_rank': 9, 'face_box': None})
+
+        r = analyze_image(img, target_navarasa)
+        if r is None:
+            return jsonify({'emotion': 'NO_FACE', 'confidence': 0, 'target_confidence': 0,
+                            'target_raw_confidence': 0, 'raw_confidence': 0, 'margin': 0,
+                            'face_quality': 0, 'target_gap': 1, 'target_rank': 9, 'face_box': None})
+
+        face_box = None
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        faces = cascade.detectMultiScale(gray, 1.1, 4)
+        if len(faces) > 0:
+            x, y, w, h = faces[0]
+            face_box = {'x': int(x), 'y': int(y), 'w': int(w), 'h': int(h)}
+
+        return jsonify({
+            'emotion': r['dominant_navarasa'],
+            'confidence': r['top_val'],
+            'raw_confidence': r['top_val'],
+            'target_confidence': r['target_conf'],
+            'target_raw_confidence': r['target_conf'],
+            'margin': r['margin'],
+            'face_quality': r['face_quality'],
+            'target_gap': r['target_gap'],
+            'target_rank': int(r['target_rank']),
+            'face_box': face_box,
+            'all_emotions': r['emotions_pct'],
+        })
+    except Exception as e:
+        print(f"Predict error: {e}")
+        return jsonify({'emotion': 'ERROR', 'confidence': 0, 'target_confidence': 0,
+                        'target_raw_confidence': 0, 'raw_confidence': 0, 'margin': 0,
+                        'face_quality': 0, 'target_gap': 1, 'target_rank': 9,
+                        'face_box': None, 'error': str(e)})
+
+@app.route('/api/judge', methods=['POST'])
+def judge():
+    if detector is None:
+        return jsonify({'error': 'Model not loaded', 'score': 0, 'comment': 'Model load ayyindhi kaadhuu!'}), 500
+    try:
+        data = request.get_json()
+        navarasa = data.get('navarasa', '')
+        image_b64 = data.get('image', '')
+        if not navarasa or not image_b64:
+            return jsonify({'error': 'Missing data'}), 400
+        if ',' in image_b64:
+            image_b64 = image_b64.split(',')[1]
+
+        img_bytes = base64.b64decode(image_b64)
+        img_array = np.frombuffer(img_bytes, dtype=np.uint8)
+        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+        if img is None:
             return jsonify({'error': 'Could not decode image'}), 400
 
         r = analyze_image(img, navarasa)
-        score = round(r['target_conf'] * 100)
-        score = max(0, min(100, score))
+        if r is None:
+            return jsonify({'score': 0, 'comment': 'Chi, face detect avvaledhu!',
+                            'dominant_emotion': 'SHANTA', 'emotions': {}})
 
+        score = max(0, min(100, round(r['target_conf'] * 100)))
         return jsonify({
             'score': score,
             'comment': get_comment(navarasa, score),
             'dominant_emotion': r['dominant_navarasa'],
             'emotions': r['emotions_pct'],
         })
-
     except Exception as e:
-        return jsonify({'error': str(e), 'score': 0,
-                        'comment': 'Chi, face detect avvaledhu!'}), 500
+        return jsonify({'error': str(e), 'score': 0, 'comment': 'Chi, face detect avvaledhu!'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=False)
