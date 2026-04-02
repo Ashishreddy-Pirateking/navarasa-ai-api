@@ -5,16 +5,16 @@ import base64
 import cv2
 import os
 
-app = Flask(__name__)
+app = Flask(**name**)
 CORS(app)
 
 FER_TO_NAVARASA = {
-'angry':   'RAUDRA',
+'angry': 'RAUDRA',
 'disgust': 'BIBHATSA',
-'fear':    'BHAYANAKA',
-'happy':   'HASYA',
-'sad':     'KARUNA',
-'surprise':'ADBHUTA',
+'fear': 'BHAYANAKA',
+'happy': 'HASYA',
+'sad': 'KARUNA',
+'surprise': 'ADBHUTA',
 'neutral': 'SHANTA',
 }
 
@@ -37,158 +37,99 @@ COMMENTS = {
 }
 
 def get_comment(nav, sc):
-    bank = COMMENTS.get(nav.upper(), COMMENTS['HASYA'])
-    for t in [91,81,71,61,51,41,31,21,11,0]:
-        if sc >= t:
-            return bank[t]
-    return bank[0]
-# ---------------- MODEL LOADING ----------------
+bank = COMMENTS.get(nav.upper(), COMMENTS['HASYA'])
+for t in [91,81,71,61,51,41,31,21,11,0]:
+if sc >= t:
+return bank[t]
+return bank[0]
+
+# MODEL LOADING
 
 print("Loading emotion model...")
 try:
-    import tensorflow as tf
-    import requests as req_lib
+import tensorflow as tf
+import requests
 
-    weights_dir = "/tmp/deepface_weights"
-    os.makedirs(weights_dir, exist_ok=True)
-    h5_path = os.path.join(weights_dir, "emotion_model.h5")
+```
+weights_dir = "/tmp/model"
+os.makedirs(weights_dir, exist_ok=True)
+model_path = os.path.join(weights_dir, "model.h5")
 
-    if not os.path.exists(h5_path) or os.path.getsize(h5_path) < 1_000_000:
-        print("Downloading emotion model...")
-        url = "https://huggingface.co/spaces/panik/Facial-Expression/resolve/2329d7eb425483a65ae56cb64550788a12401e40/facial_expression_model_weights.h5"
-        r = req_lib.get(url, allow_redirects=True, timeout=120)
-        with open(h5_path, 'wb') as f:
-            f.write(r.content)
-        print(f"Downloaded: {os.path.getsize(h5_path)} bytes")
+if not os.path.exists(model_path):
+    url = "https://huggingface.co/spaces/panik/Facial-Expression/resolve/2329d7eb425483a65ae56cb64550788a12401e40/facial_expression_model_weights.h5"
+    r = requests.get(url, timeout=120)
+    with open(model_path, "wb") as f:
+        f.write(r.content)
 
-    emotion_model = tf.keras.models.load_model(h5_path)
-    detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+model = tf.keras.models.load_model(model_path)
+face_detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-    MODEL_READY = True
-    print("Emotion model ready!")
+MODEL_READY = True
+print("Model ready!")
+```
 
 except Exception as e:
-    print(f"Model load error: {e}")
-    MODEL_READY = False
-    emotion_model = None
-    detector = None
+print("Model load error:", e)
+MODEL_READY = False
 
-# ---------------- ANALYSIS ----------------
+EMOTIONS = ['angry','disgust','fear','happy','sad','surprise','neutral']
 
-EMOTION_LABELS = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
-
-def analyze_image(img, target_navarasa):
+def analyze(img, target):
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-faces = detector.detectMultiScale(gray, 1.1, 4, minSize=(30,30))
+faces = face_detector.detectMultiScale(gray, 1.1, 4)
 
 ```
 if len(faces) == 0:
     return None
 
-x, y, w, h = faces[0]
+x,y,w,h = faces[0]
 face = gray[y:y+h, x:x+w]
-face = cv2.resize(face, (48, 48))
-face = face.astype('float32') / 255.0
-face = np.expand_dims(face, axis=[0, -1])
+face = cv2.resize(face, (48,48))
+face = face / 255.0
+face = np.reshape(face, (1,48,48,1))
 
-preds = emotion_model.predict(face, verbose=0)[0]
-emotions_raw = {EMOTION_LABELS[i]: float(preds[i]) for i in range(len(EMOTION_LABELS))}
+preds = model.predict(face, verbose=0)[0]
+emotions = {EMOTIONS[i]: float(preds[i]) for i in range(len(EMOTIONS))}
 
-dominant_fer = max(emotions_raw, key=emotions_raw.get)
-dominant_navarasa = FER_TO_NAVARASA.get(dominant_fer, 'SHANTA')
+dominant = max(emotions, key=emotions.get)
+nav = FER_TO_NAVARASA.get(dominant, 'SHANTA')
 
-target_fer = NAVARASA_TO_FER.get(target_navarasa.upper(), 'neutral')
-target_conf = emotions_raw.get(target_fer, 0.0)
+target_fer = NAVARASA_TO_FER.get(target, 'neutral')
+score = emotions.get(target_fer, 0)
 
-top_val = emotions_raw.get(dominant_fer, 0.0)
-sorted_vals = sorted(emotions_raw.values(), reverse=True)
-second_val = sorted_vals[1] if len(sorted_vals) > 1 else 0.0
-
-margin = top_val - second_val
-face_quality = min(1.0, margin * 2)
-target_gap = top_val - target_conf
-target_rank = sorted_vals.index(emotions_raw.get(target_fer, 0)) + 1
-
-emotions_pct = {k: round(v * 100, 1) for k, v in emotions_raw.items()}
-
-return {
-    'dominant_navarasa': dominant_navarasa,
-    'target_conf': target_conf,
-    'top_val': top_val,
-    'target_rank': target_rank,
-    'target_gap': target_gap,
-    'margin': margin,
-    'face_quality': face_quality,
-    'emotions_pct': emotions_pct,
-    'face_box': {'x': int(x), 'y': int(y), 'w': int(w), 'h': int(h)},
-}
+return nav, score, emotions
 ```
 
-# ---------------- ROUTES ----------------
-
-@app.route('/warmup', methods=['GET'])
-def warmup():
-return jsonify({'status': 'warm'})
-
-@app.route('/', methods=['GET'])
-def health():
-return jsonify({'status': 'Navarasa AI API is running!', 'model': 'Ready' if MODEL_READY else 'Failed'})
-
-@app.route('/predict', methods=['POST'])
-def predict():
-if not MODEL_READY:
-return jsonify({'emotion': 'ERROR', 'message': 'Model not ready'})
-
-```
-try:
-    data = request.get_json()
-    image_b64 = data.get('image')
-    target = data.get('navarasa', 'SHANTA')
-
-    img_bytes = base64.b64decode(image_b64.split(',')[-1])
-    img_array = np.frombuffer(img_bytes, dtype=np.uint8)
-    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-
-    result = analyze_image(img, target)
-    if result is None:
-        return jsonify({'emotion': 'NO_FACE'})
-
-    return jsonify(result)
-
-except Exception as e:
-    return jsonify({'error': str(e)})
-```
+@app.route('/')
+def home():
+return jsonify({'status': 'ok', 'model': MODEL_READY})
 
 @app.route('/api/judge', methods=['POST'])
 def judge():
 if not MODEL_READY:
-return jsonify({'error': 'Model not loaded', 'score': 0})
+return jsonify({'error':'model not ready'})
 
 ```
-try:
-    data = request.get_json()
-    navarasa = data.get('navarasa')
-    image_b64 = data.get('image')
+data = request.get_json()
+img_b64 = data['image']
+nav = data['navarasa']
 
-    img_bytes = base64.b64decode(image_b64.split(',')[-1])
-    img_array = np.frombuffer(img_bytes, dtype=np.uint8)
-    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+img_bytes = base64.b64decode(img_b64.split(',')[-1])
+img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
 
-    r = analyze_image(img, navarasa)
-    if r is None:
-        return jsonify({'score': 0, 'comment': 'No face detected'})
+res = analyze(img, nav)
+if res is None:
+    return jsonify({'score':0,'comment':'No face'})
 
-    score = max(0, min(100, round(r['target_conf'] * 100)))
+nav_out, score, emotions = res
+score = int(score*100)
 
-    return jsonify({
-        'score': score,
-        'comment': get_comment(navarasa, score),
-        'dominant_emotion': r['dominant_navarasa'],
-        'emotions': r['emotions_pct'],
-    })
-
-except Exception as e:
-    return jsonify({'error': str(e)})
+return jsonify({
+    'score': score,
+    'comment': get_comment(nav, score),
+    'dominant_emotion': nav_out,
+    'emotions': emotions
+})
 ```
 
 if **name** == '**main**':
