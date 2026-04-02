@@ -37,12 +37,11 @@ COMMENTS = {
 }
 
 def get_comment(nav, sc):
-bank = COMMENTS.get(nav.upper(), COMMENTS['HASYA'])
-for t in [91,81,71,61,51,41,31,21,11,0]:
-if sc >= t:
-return bank[t]
-return bank[0]
-
+    bank = COMMENTS.get(nav.upper(), COMMENTS['HASYA'])
+    for t in [91,81,71,61,51,41,31,21,11,0]:
+        if sc >= t:
+            return bank[t]
+    return bank[0]
 # ---------------- MODEL LOADING ----------------
 
 print("Loading emotion model...")
