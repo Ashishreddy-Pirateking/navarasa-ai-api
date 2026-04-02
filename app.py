@@ -5,7 +5,7 @@ import base64
 import cv2
 import os
 
-app = Flask(**name**)
+app = Flask(__name__)
 CORS(app)
 
 FER_TO_NAVARASA = {
