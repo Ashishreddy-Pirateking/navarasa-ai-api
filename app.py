@@ -46,34 +46,32 @@ def get_comment(nav, sc):
 
 print("Loading emotion model...")
 try:
-import tensorflow as tf
-import requests as req_lib
+    import tensorflow as tf
+    import requests as req_lib
 
-```
-weights_dir = "/tmp/deepface_weights"
-os.makedirs(weights_dir, exist_ok=True)
-h5_path = os.path.join(weights_dir, "emotion_model.h5")
+    weights_dir = "/tmp/deepface_weights"
+    os.makedirs(weights_dir, exist_ok=True)
+    h5_path = os.path.join(weights_dir, "emotion_model.h5")
 
-if not os.path.exists(h5_path) or os.path.getsize(h5_path) < 1_000_000:
-    print("Downloading emotion model...")
-    url = "https://huggingface.co/spaces/panik/Facial-Expression/resolve/2329d7eb425483a65ae56cb64550788a12401e40/facial_expression_model_weights.h5"
-    r = req_lib.get(url, allow_redirects=True, timeout=120)
-    with open(h5_path, 'wb') as f:
-        f.write(r.content)
-    print(f"Downloaded: {os.path.getsize(h5_path)} bytes")
+    if not os.path.exists(h5_path) or os.path.getsize(h5_path) < 1_000_000:
+        print("Downloading emotion model...")
+        url = "https://huggingface.co/spaces/panik/Facial-Expression/resolve/2329d7eb425483a65ae56cb64550788a12401e40/facial_expression_model_weights.h5"
+        r = req_lib.get(url, allow_redirects=True, timeout=120)
+        with open(h5_path, 'wb') as f:
+            f.write(r.content)
+        print(f"Downloaded: {os.path.getsize(h5_path)} bytes")
 
-emotion_model = tf.keras.models.load_model(h5_path)
-detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    emotion_model = tf.keras.models.load_model(h5_path)
+    detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-MODEL_READY = True
-print("Emotion model ready!")
-```
+    MODEL_READY = True
+    print("Emotion model ready!")
 
 except Exception as e:
-print(f"Model load error: {e}")
-MODEL_READY = False
-emotion_model = None
-detector = None
+    print(f"Model load error: {e}")
+    MODEL_READY = False
+    emotion_model = None
+    detector = None
 
 # ---------------- ANALYSIS ----------------
 
