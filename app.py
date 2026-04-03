@@ -8,8 +8,6 @@ import os
 app = Flask(**name**)
 CORS(app)
 
-# ------------------ MAPPINGS ------------------
-
 FER_TO_NAVARASA = {
 'angry': 'RAUDRA',
 'disgust': 'BIBHATSA',
@@ -26,18 +24,8 @@ NAVARASA_TO_FER = {
 'SHANTA': 'neutral', 'SHRINGARA': 'happy', 'VEERA': 'angry',
 }
 
-# ------------------ COMMENTS ------------------
-
 COMMENTS = {
-'HASYA': {0:'Mokam endhuku ala pettav',11:'Muthi meedha mekulu kottara',21:'Endhuku pudutharo kuuda thelidhu',31:'Navvu bro koncham em kaadhu',41:'Parledhu serials lo act cheyochu',51:'Okay Movies lo side character cheyochu',61:'Noiceeee',71:'Heroooooooo',81:'Koncham lo national award miss ayyindhi bro',91:'Attttt Kamal Hassan'},
-'KARUNA': {0:'karuna chupinchali, kaamam kaadhu',11:'Nidra po analedhu, karuna chupinchamanam',21:'Kothi la pettav enti bro mokam',31:'Ni meedha evaraina karunisthe baagundu',41:'Parledhu, okay',51:'Noiceee, keep it up',61:'Acting ochu ayithe baane',71:'Mercy mercy mercy, ankara Mercy',81:'Anthe anthe ochesindhi, inkoncham',91:'Attttt Sai Baba'},
-'RAUDRA': {0:'Edsinatte undhi',11:'mokam sarey, kopam ekkada undhi',21:'Pilla bacha kopam idhi',31:'Pandu kothi la bale unnav bhaii',41:'kallu pedhaga chesthe kopam avvadhu nana',51:'Oopiri pilchuko lekapothe poye la unnav',61:'Eyyuuu anna',71:'Ammo bayam vesthundhi baboi',81:'Pedha actor eh',91:'Hey Arjun Reddy lo hero nuvve ga?'},
-'VEERA': {0:'Comedian la unnav',11:'Mokam enti ila undhi',21:'Enti ala chusthunav, ee score eh ekkuva peh',31:'Raju kaadhu kani, mantri ayithe okay',41:'Close, inkocham try cheyi',51:'Parledhu, okka chinna rajyam ivvochu',61:'Antha okay kaani edho missing king gaaru',71:'Abba abba em tejasuu bidda',81:'Meeru KGP Rajyam Prince ah?',91:'Raju Ekkada unna Raju eh'},
-'BHAYANAKA': {0:'Enthasepu inka act cheyadaniki',11:'Asalu baale',21:'abacha enti idhi bayame?',31:'Bayapettu analedhu, bayapadu annam',41:'Not bad, kaani inka bayam la ledhu',51:'Eyuuuu',61:'Baane bayapaduthunav',71:'Crush ni make-up lekunda chusava?',81:'Results annouce ayinattu unnayi, chaala bayapaduthunadu paapam',91:'Mana Main character Dhorikesar ayya'},
-'BIBHATSA': {0:'Nuvve disgusting ga unnav',11:'inkoncham pettochu ga expression',21:'inkoncham pettochu ga expression',31:'inkoncham pettochu ga expression',41:'Parledhu, okay',51:'Antha dharidranga undha?',61:'Em act chesthunav bro. Wah',71:'Yes idhi actor ki undalsina skill level',81:'Em chusav Mowa antha dhaarunanga',91:'Eyuuu actor'},
-'ADBHUTA': {0:'Chi',11:'Adbhutanga cheyi annam, asahyanga kaadhu',21:'idhi acting ah?',31:'Endhuku intha lazy ga unnav',41:'Koncham expression kuuda pettalsindhi',51:'Parledhu, okay',61:'Anni subjects pass ayipoyava',71:'Crush ni saree lo chusina moment',81:'Chaala Adbhutanga undhi Chowdharaa',91:'WOWwww Noiceee'},
-'SHANTA': {0:'Yukkkkk',11:'Shantanga ekkada unnav?',21:'Enti idhi peaceful ah?',31:'Asale baaledhu',41:'Idhi eh ekkuva peh',51:'Peace',61:'Wars ni aapesela unnav ga',71:'Ah chiru navvu chudu eyuuu',81:'Gandhi jayanti ni birthday roju eh na?',91:'Bhudhudi la bale shantanga unnav ayya'},
-'SHRINGARA': {0:'blehhh ewww',11:'Enti idhi, ah maaku enti idhi antunna',21:'Chi',31:'kastame bro ila ayithe partner raavadam',41:'Ela padutharu anukuntunav ila evarraina',51:'Ayya baboiiii siguuuu ehhhhh',61:'ey ey eyyyyyyy',71:'Edho anukunamu kaani andi, maamulu vaaru kaadhandi',81:'Ahaaaannnn',91:'Rasikudive'},
+'HASYA': {0:'Mokam endhuku ala pettav',11:'Muthi meedha mekulu kottara',21:'Endhuku pudutharo kuuda thelidhu',31:'Navvu bro koncham em kaadhu',41:'Parledhu serials lo act cheyochu',51:'Okay Movies lo side character cheyochu',61:'Noiceeee',71:'Heroooooooo',81:'Koncham lo national award miss ayyindhi bro',91:'Attttt Kamal Hassan'}
 }
 
 def get_comment(nav, sc):
@@ -47,11 +35,7 @@ if sc >= t:
 return bank[t]
 return bank[0]
 
-
-# ------------------ MODEL LOADING ------------------
-
 print("Loading model...")
-
 MODEL_READY = False
 
 try:
@@ -64,16 +48,13 @@ os.makedirs(weights_dir, exist_ok=True)
 model_path = os.path.join(weights_dir, "model.h5")
 
 if not os.path.exists(model_path):
-    print("Downloading model...")
     url = "https://huggingface.co/spaces/panik/Facial-Expression/resolve/2329d7eb425483a65ae56cb64550788a12401e40/facial_expression_model_weights.h5"
     r = requests.get(url, timeout=120)
     with open(model_path, "wb") as f:
         f.write(r.content)
 
 model = tf.keras.models.load_model(model_path)
-face_detector = cv2.CascadeClassifier(
-    cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-)
+face_detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 MODEL_READY = True
 print("Model ready!")
@@ -81,8 +62,6 @@ print("Model ready!")
 
 except Exception as e:
 print("Model load error:", e)
-
-# ------------------ ANALYSIS ------------------
 
 EMOTIONS = ['angry','disgust','fear','happy','sad','surprise','neutral']
 
@@ -112,14 +91,9 @@ score = emotions.get(target_fer, 0)
 return nav, score, emotions
 ```
 
-# ------------------ ROUTES ------------------
-
 @app.route("/")
 def home():
-return jsonify({
-"status": "ok",
-"model": "ready" if MODEL_READY else "loading"
-})
+return jsonify({"status": "ok", "model": "ready" if MODEL_READY else "loading"})
 
 @app.route("/api/judge", methods=["POST"])
 def judge():
@@ -133,10 +107,7 @@ try:
     nav = data["navarasa"]
 
     img_bytes = base64.b64decode(img_b64.split(",")[-1])
-    img = cv2.imdecode(
-        np.frombuffer(img_bytes, np.uint8),
-        cv2.IMREAD_COLOR
-    )
+    img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
 
     res = analyze(img, nav)
 
@@ -156,8 +127,6 @@ try:
 except Exception as e:
     return jsonify({"error": str(e)})
 ```
-
-# ------------------ RUN ------------------
 
 if **name** == "**main**":
 app.run(host="0.0.0.0", port=10000)
